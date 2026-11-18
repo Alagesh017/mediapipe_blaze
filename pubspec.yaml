@@ -1,0 +1,36 @@
+name: mediapipe_lbaze
+description: MediaPipe BlazePose body landmarks + yoga scoring.
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: ">=3.6.0 <4.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.8
+  camera: 0.11.2
+  shared_preferences: ^2.5.3
+  tflite_flutter: ^0.11.0
+  wakelock_plus: 1.2.8
+
+dependency_overrides:
+  camera_android_camerax: ^0.6.17
+  camera_avfoundation: ^0.9.21+1
+  package_info_plus: 8.3.0
+  flutter_plugin_android_lifecycle: 2.0.29
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/modal/pose_landmarker_lite.task
+    - assets/modal/pose_landmarker_full.task
+    - assets/modal/movenet_lightning.tflite
+    - assets/modal/movenet_thunder.tflite
+    - assets/profile/

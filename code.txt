@@ -1,0 +1,1428 @@
+ half moon pose --YOGA_CODE_ID = 6
+
+DART_CODE = r'''class Exercise {
+  Map<String, dynamic> processLogic(
+      int shoulderHipKneeLeftAngle,
+      int shoulderHipKneeRightAngle,
+      int hipKneeAnkleLeftAngle,
+      int hipKneeAnkleRightAngle,
+      int elbowShoulderHipLeftAngle,
+      int elbowShoulderHipRightAngle,
+      int angleBetweenHands,
+      int angleBetweenLegs,
+      String res,
+      int validPosesCount,
+      int currentPoseIndex) {
+    int accuracy = 0;
+
+    bool noHumanDetected = (
+      shoulderHipKneeLeftAngle <= 0 &&
+      shoulderHipKneeRightAngle <= 0 &&
+      hipKneeAnkleLeftAngle <= 0 &&
+      hipKneeAnkleRightAngle <= 0 &&
+      elbowShoulderHipLeftAngle <= 0 &&
+      elbowShoulderHipRightAngle <= 0 &&
+      angleBetweenHands <= 0 &&
+      angleBetweenLegs <= 0
+    );
+
+    bool incompleteBodyDetected = (
+      shoulderHipKneeLeftAngle < 40 ||
+      shoulderHipKneeRightAngle < 40 ||
+      hipKneeAnkleLeftAngle < 40 ||
+      hipKneeAnkleRightAngle < 40
+    );
+
+    if (noHumanDetected || incompleteBodyDetected) {
+      return {
+        'res': "Fix Position",
+        'accuracy': 0,
+        'validPosesCount': validPosesCount,
+        'currentPose': "Ardha Chandrasana",
+        'currentPoseIndex': currentPoseIndex
+      };
+    }
+
+    if (hipKneeAnkleLeftAngle > 160 &&
+        hipKneeAnkleRightAngle > 160 &&
+        shoulderHipKneeLeftAngle > 150 &&
+        shoulderHipKneeRightAngle > 150 &&
+        angleBetweenLegs < 20) {
+      return {
+        'res': "Fix Position",
+        'accuracy': 0,
+        'validPosesCount': validPosesCount,
+        'currentPose': "Ardha Chandrasana",
+        'currentPoseIndex': currentPoseIndex
+      };
+    }
+
+    const int elbowShoulderHipMin = 70, elbowShoulderHipMax = 115;
+    const int shoulderHipKneeMin = 60, shoulderHipKneeMax = 180;
+    const int hipKneeAnkleMin = 60, hipKneeAnkleMax = 180;
+    const int handAngleMin = 160, handAngleMax = 180;
+    const int legAngleMin = 85, legAngleMax = 115;
+
+    // Accuracy calculations
+    int elbowShoulderHipLeftAccuracy = calculateAccuracy(elbowShoulderHipLeftAngle, elbowShoulderHipMin, elbowShoulderHipMax);
+    int elbowShoulderHipRightAccuracy = calculateAccuracy(elbowShoulderHipRightAngle, elbowShoulderHipMin, elbowShoulderHipMax);
+    int shoulderHipKneeLeftAccuracy = calculateAccuracy(shoulderHipKneeLeftAngle, shoulderHipKneeMin, shoulderHipKneeMax);
+    int shoulderHipKneeRightAccuracy = calculateAccuracy(shoulderHipKneeRightAngle, shoulderHipKneeMin, shoulderHipKneeMax);
+    int hipKneeAnkleLeftAccuracy = calculateAccuracy(hipKneeAnkleLeftAngle, hipKneeAnkleMin, hipKneeAnkleMax);
+    int hipKneeAnkleRightAccuracy = calculateAccuracy(hipKneeAnkleRightAngle, hipKneeAnkleMin, hipKneeAnkleMax);
+    int handAlignmentAccuracy = calculateAccuracy(angleBetweenHands, handAngleMin, handAngleMax);
+    int legAlignmentAccuracy = calculateAccuracy(angleBetweenLegs, legAngleMin, legAngleMax);
+
+    // Average final accuracy
+    accuracy = (
+      elbowShoulderHipLeftAccuracy +
+      elbowShoulderHipRightAccuracy +
+      shoulderHipKneeLeftAccuracy +
+      shoulderHipKneeRightAccuracy +
+      hipKneeAnkleLeftAccuracy +
+      hipKneeAnkleRightAccuracy +
+      handAlignmentAccuracy +
+      legAlignmentAccuracy
+    ) ~/
+    8;
+
+    // Improved Standing Pose Detection
+    bool isStandingPose = 
+      angleBetweenHands <= 90 &&    // arms down
+      angleBetweenLegs <= 20 &&     // legs close
+      shoulderHipKneeLeftAngle >= 165 &&
+      shoulderHipKneeRightAngle >= 165 &&
+      hipKneeAnkleLeftAngle >= 165 &&
+      hipKneeAnkleRightAngle >= 165;
+
+    // Yoga Pose Conditions (with hand/leg alignment)
+    bool leftSideValid = 
+      elbowShoulderHipLeftAngle >= elbowShoulderHipMin &&
+      shoulderHipKneeLeftAngle >= shoulderHipKneeMin &&
+      hipKneeAnkleLeftAngle >= hipKneeAnkleMin &&
+      handAlignmentAccuracy >= 85 &&
+      legAlignmentAccuracy >= 85;
+
+    bool rightSideValid =
+      elbowShoulderHipRightAngle >= elbowShoulderHipMin &&
+      shoulderHipKneeRightAngle >= shoulderHipKneeMin &&
+      hipKneeAnkleRightAngle >= hipKneeAnkleMin &&
+      handAlignmentAccuracy >= 85 &&
+      legAlignmentAccuracy >= 85;
+
+    if (isStandingPose) {
+      accuracy = 0;
+      res = "Standby Pose";
+    } else if (leftSideValid || rightSideValid) {
+      res = "Good";
+      validPosesCount += 1;
+    } else {
+      res = "Fix Position";
+    }
+
+    if (accuracy > 96) accuracy = 96;
+    if (accuracy < 0) accuracy = 0;
+
+    return {
+      'res': res,
+      'accuracy': accuracy,
+      'validPosesCount': validPosesCount,
+      'currentPose': "Ardha Chandrasana",
+      'currentPoseIndex': currentPoseIndex
+    };
+  }
+
+  int calculateAccuracy(int angle, int minAngle, int maxAngle) {
+    int accuracy;
+    if (angle < minAngle) {
+      accuracy = 100 - ((minAngle - angle) / (maxAngle - minAngle) * 100).toInt();
+    } else if (angle > maxAngle) {
+      accuracy = 100 - ((angle - maxAngle) / (maxAngle - minAngle) * 100).toInt();
+    } else {
+      accuracy = 100;
+    }
+    if (accuracy < 0) accuracy = 0;
+    if (accuracy > 100) accuracy = 100;
+    return accuracy;
+  }
+}
+
+Map<String, dynamic> main(
+  int elbowShoulderHipLeftAngle,
+  int elbowShoulderHipRightAngle,
+  int shoulderElbowHipLeftAngle,
+  int shoulderElbowHipRightAngle,
+  int hipKneeAnkleLeftAngle,
+  int hipKneeAnkleRightAngle,
+  int shoulderHipElbowLeftAngle,
+  int shoulderHipElbowRightAngle,
+  int shoulderHipKneeLeftAngle,
+  int shoulderHipKneeRightAngle,
+  int elbowShoulderWristLeftAngle,
+  int elbowShoulderWristRightAngle,
+  int shoulderHipShoulderAngle,
+  int shoulderElbowWristLeftAngle,
+  int shoulderElbowWristRightAngle,
+  int angleBetweenHands,
+  int angleBetweenLegs,
+  bool areBothHandsAboveNose,
+  bool isAnyHandAboveNose,
+  bool isAnyLegAboveNose,
+  String res,
+  int validPosesCount,
+  int currentPoseIndex,
+) {
+  final exercise = Exercise();
+  return exercise.processLogic(
+    shoulderHipKneeLeftAngle,
+    shoulderHipKneeRightAngle,
+    hipKneeAnkleLeftAngle,
+    hipKneeAnkleRightAngle,
+    elbowShoulderHipLeftAngle,
+    elbowShoulderHipRightAngle,
+    angleBetweenHands,
+    angleBetweenLegs,
+    res,
+    validPosesCount,
+    currentPoseIndex,
+  );
+}'''
+----------------------------------------------------------
+
+chair pose 
+
+
+YOGA_CODE_ID = 7
+
+DART_CODE = r'''class Exercise {
+  Map<String, dynamic> processLogic(
+    int shoulderHipKneeLeftAngle,
+    int shoulderHipKneeRightAngle,
+    int hipKneeAnkleLeftAngle,
+    int hipKneeAnkleRightAngle,
+    int elbowShoulderWristLeftAngle,
+    int elbowShoulderWristRightAngle,
+    bool areBothHandsAboveNose,
+    String res,
+    int validPosesCount,
+    int currentPoseIndex
+  ) {
+    int accuracy = 0;
+
+    bool noHumanDetected = (
+      shoulderHipKneeLeftAngle <= 0 &&
+      shoulderHipKneeRightAngle <= 0 &&
+      hipKneeAnkleLeftAngle <= 0 &&
+      hipKneeAnkleRightAngle <= 0 &&
+      elbowShoulderWristLeftAngle <= 0 &&
+      elbowShoulderWristRightAngle <= 0
+    );
+
+    bool incompleteBodyDetected = (
+      shoulderHipKneeLeftAngle < 40 ||
+      shoulderHipKneeRightAngle < 40 ||
+      hipKneeAnkleLeftAngle < 40 ||
+      hipKneeAnkleRightAngle < 40
+    );
+
+    if (noHumanDetected || incompleteBodyDetected) {
+      return {
+        'res': "Fix Position",
+        'accuracy': 0,
+        'validPosesCount': validPosesCount,
+        'currentPose': "Utkatasana",
+        'currentPoseIndex': currentPoseIndex
+      };
+    }
+
+    // Check if the person is standing
+    if (isStandingPose(
+      shoulderHipKneeLeftAngle,
+      shoulderHipKneeRightAngle,
+      hipKneeAnkleLeftAngle,
+      hipKneeAnkleRightAngle
+    )) {
+      return {
+        'res': "Fix Position",
+        'accuracy': 0,
+        'validPosesCount': validPosesCount,
+        'currentPose': "Utkatasana",
+        'currentPoseIndex': currentPoseIndex
+      };
+    }
+
+    // Thresholds
+    const int shoulderHipKneeMin = 90, shoulderHipKneeMax = 140;
+    const int hipKneeAnkleMin = 90, hipKneeAnkleMax = 140;
+    const int minHandLiftAngle = 5;
+
+    // Accuracy components
+    int shoulderHipKneeLeftAccuracy =
+        calculateAccuracy(shoulderHipKneeLeftAngle, shoulderHipKneeMin, shoulderHipKneeMax);
+    int shoulderHipKneeRightAccuracy =
+        calculateAccuracy(shoulderHipKneeRightAngle, shoulderHipKneeMin, shoulderHipKneeMax);
+    int hipKneeAnkleLeftAccuracy =
+        calculateAccuracy(hipKneeAnkleLeftAngle, hipKneeAnkleMin, hipKneeAnkleMax);
+    int hipKneeAnkleRightAccuracy =
+        calculateAccuracy(hipKneeAnkleRightAngle, hipKneeAnkleMin, hipKneeAnkleMax);
+
+    // Hand scoring
+    int handRaiseScore = 0;
+    if (areBothHandsAboveNose) {
+      handRaiseScore = 100;
+    } else if (elbowShoulderWristLeftAngle >= minHandLiftAngle &&
+               elbowShoulderWristRightAngle >= minHandLiftAngle) {
+      handRaiseScore = 85;
+    }
+
+    // Final accuracy
+    accuracy = (
+      shoulderHipKneeLeftAccuracy +
+      shoulderHipKneeRightAccuracy +
+      hipKneeAnkleLeftAccuracy +
+      hipKneeAnkleRightAccuracy +
+      handRaiseScore
+    ) ~/ 5;
+
+    // Pose status
+    if (shoulderHipKneeLeftAngle >= shoulderHipKneeMin &&
+        shoulderHipKneeRightAngle >= shoulderHipKneeMin &&
+        hipKneeAnkleLeftAngle >= hipKneeAnkleMin &&
+        hipKneeAnkleRightAngle >= hipKneeAnkleMin &&
+        handRaiseScore >= 85) {
+      res = "Good";
+      validPosesCount += 1;
+    } else {
+      res = "Fix Position";
+    }
+
+    return {
+      'res': res,
+      'accuracy': accuracy,
+      'validPosesCount': validPosesCount,
+      'currentPose': "Utkatasana",
+      'currentPoseIndex': currentPoseIndex
+    };
+  }
+
+  bool isStandingPose(
+    int shoulderHipKneeLeft,
+    int shoulderHipKneeRight,
+    int hipKneeAnkleLeft,
+    int hipKneeAnkleRight
+  ) {
+    return (shoulderHipKneeLeft > 150 &&
+            shoulderHipKneeRight > 150 &&
+            hipKneeAnkleLeft > 160 &&
+            hipKneeAnkleRight > 160);
+  }
+
+  int calculateAccuracy(int angle, int minAngle, int maxAngle) {
+    int accuracy;
+    if (angle < minAngle) {
+      accuracy = 100 - ((minAngle - angle) / (maxAngle - minAngle) * 100).toInt();
+    } else if (angle > maxAngle) {
+      accuracy = 100 - ((angle - maxAngle) / (maxAngle - minAngle) * 100).toInt();
+    } else {
+      accuracy = 100;
+    }
+
+    if (accuracy < 0) accuracy = 0;
+    if (accuracy > 100) accuracy = 100;
+    return accuracy;
+  }
+}
+
+Map<String, dynamic> main(
+  int elbowShoulderHipLeftAngle,
+  int elbowShoulderHipRightAngle,
+  int shoulderElbowHipLeftAngle,
+  int shoulderElbowHipRightAngle,
+  int hipKneeAnkleLeftAngle,
+  int hipKneeAnkleRightAngle,
+  int shoulderHipElbowLeftAngle,
+  int shoulderHipElbowRightAngle,
+  int shoulderHipKneeLeftAngle,
+  int shoulderHipKneeRightAngle,
+  int elbowShoulderWristLeftAngle,
+  int elbowShoulderWristRightAngle,
+  int shoulderHipShoulderAngle,
+  int shoulderElbowWristLeftAngle,
+  int shoulderElbowWristRightAngle,
+  int angleBetweenHands,
+  int angleBetweenLegs,
+  bool areBothHandsAboveNose,
+  bool isAnyHandAboveNose,
+  bool isAnyLegAboveNose,
+  String res,
+  int validPosesCount,
+  int currentPoseIndex
+) {
+  final exercise = Exercise();
+  return exercise.processLogic(
+    shoulderHipKneeLeftAngle,
+    shoulderHipKneeRightAngle,
+    hipKneeAnkleLeftAngle,
+    hipKneeAnkleRightAngle,
+    elbowShoulderWristLeftAngle,
+    elbowShoulderWristRightAngle,
+    areBothHandsAboveNose,
+    res,
+    validPosesCount,
+    currentPoseIndex,
+  );
+}'''
+_______________________________________________________
+
+one legged pose
+
+
+YOGA_CODE_ID = 8
+
+DART_CODE = r'''class Exercise {
+  Map<String, dynamic> processLogic(
+    int hipKneeAnkleLeftAngle,
+    int hipKneeAnkleRightAngle,
+    int shoulderHipKneeLeftAngle,
+    int shoulderHipKneeRightAngle,
+    int shoulderElbowWristLeftAngle,
+    int shoulderElbowWristRightAngle,
+    int angleBetweenLegs,
+    String res,
+  ) {
+    int accuracy = 0;
+
+    bool noHumanDetected = (
+      hipKneeAnkleLeftAngle <= 0 &&
+      hipKneeAnkleRightAngle <= 0 &&
+      shoulderHipKneeLeftAngle <= 0 &&
+      shoulderHipKneeRightAngle <= 0 &&
+      shoulderElbowWristLeftAngle <= 0 &&
+      shoulderElbowWristRightAngle <= 0 &&
+      angleBetweenLegs <= 0
+    );
+
+    bool incompleteBodyDetected = (
+      hipKneeAnkleLeftAngle < 40 ||
+      hipKneeAnkleRightAngle < 40 ||
+      shoulderHipKneeLeftAngle < 40 ||
+      shoulderHipKneeRightAngle < 40 ||
+      angleBetweenLegs < 30
+    );
+
+    if (noHumanDetected || incompleteBodyDetected) {
+      return {
+        'res': "Fix Position",
+        'accuracy': 0,
+      };
+    }
+
+    bool isLeftLegRaised = shoulderHipKneeLeftAngle < shoulderHipKneeRightAngle;
+
+    const int standingLegHipKneeMin = 160, standingLegHipKneeMax = 185;
+    const int raisedLegHipKneeMin = 85, raisedLegHipKneeMax = 120;
+    const int standingShoulderHipKneeMin = 150, standingShoulderHipKneeMax = 185;
+    const int raisedShoulderHipKneeMin = 85, raisedShoulderHipKneeMax = 120;
+    const int shoulderElbowWristMin = 130, shoulderElbowWristMax = 180;
+    const int angleBetweenLegsMin = 95, angleBetweenLegsMax = 145;
+
+    int hipKneeAnkleLeftMin, hipKneeAnkleLeftMax,
+        hipKneeAnkleRightMin, hipKneeAnkleRightMax,
+        shoulderHipKneeLeftMin, shoulderHipKneeLeftMax,
+        shoulderHipKneeRightMin, shoulderHipKneeRightMax;
+
+    if (isLeftLegRaised) {
+      hipKneeAnkleLeftMin = raisedLegHipKneeMin;
+      hipKneeAnkleLeftMax = raisedLegHipKneeMax;
+      shoulderHipKneeLeftMin = raisedShoulderHipKneeMin;
+      shoulderHipKneeLeftMax = raisedShoulderHipKneeMax;
+
+      hipKneeAnkleRightMin = standingLegHipKneeMin;
+      hipKneeAnkleRightMax = standingLegHipKneeMax;
+      shoulderHipKneeRightMin = standingShoulderHipKneeMin;
+      shoulderHipKneeRightMax = standingShoulderHipKneeMax;
+    } else {
+      hipKneeAnkleRightMin = raisedLegHipKneeMin;
+      hipKneeAnkleRightMax = raisedLegHipKneeMax;
+      shoulderHipKneeRightMin = raisedShoulderHipKneeMin;
+      shoulderHipKneeRightMax = raisedShoulderHipKneeMax;
+
+      hipKneeAnkleLeftMin = standingLegHipKneeMin;
+      hipKneeAnkleLeftMax = standingLegHipKneeMax;
+      shoulderHipKneeLeftMin = standingShoulderHipKneeMin;
+      shoulderHipKneeLeftMax = standingShoulderHipKneeMax;
+    }
+
+    int hipKneeAnkleLeftAccuracy = calculateAccuracy(hipKneeAnkleLeftAngle, hipKneeAnkleLeftMin, hipKneeAnkleLeftMax);
+    int hipKneeAnkleRightAccuracy = calculateAccuracy(hipKneeAnkleRightAngle, hipKneeAnkleRightMin, hipKneeAnkleRightMax);
+    int shoulderHipKneeLeftAccuracy = calculateAccuracy(shoulderHipKneeLeftAngle, shoulderHipKneeLeftMin, shoulderHipKneeLeftMax);
+    int shoulderHipKneeRightAccuracy = calculateAccuracy(shoulderHipKneeRightAngle, shoulderHipKneeRightMin, shoulderHipKneeRightMax);
+    int shoulderElbowWristLeftAccuracy = calculateAccuracy(shoulderElbowWristLeftAngle, shoulderElbowWristMin, shoulderElbowWristMax);
+    int shoulderElbowWristRightAccuracy = calculateAccuracy(shoulderElbowWristRightAngle, shoulderElbowWristMin, shoulderElbowWristMax);
+    int legSpreadAccuracy = calculateAccuracy(angleBetweenLegs, angleBetweenLegsMin, angleBetweenLegsMax);
+
+    int leftSideAccuracy = (
+      hipKneeAnkleLeftAccuracy +
+      shoulderHipKneeLeftAccuracy +
+      shoulderElbowWristLeftAccuracy +
+      legSpreadAccuracy
+    ) ~/ 4;
+
+    int rightSideAccuracy = (
+      hipKneeAnkleRightAccuracy +
+      shoulderHipKneeRightAccuracy +
+      shoulderElbowWristRightAccuracy +
+      legSpreadAccuracy
+    ) ~/ 4;
+
+    accuracy = leftSideAccuracy > rightSideAccuracy ? leftSideAccuracy : rightSideAccuracy;
+
+    if (accuracy >= 85) {
+      res = "Good";
+    } else if (accuracy >= 45) {
+      res = "Almost There";
+    } else {
+      res = "Fix Position";
+    }
+
+    return {
+      'res': res,
+      'accuracy': accuracy,
+    };
+  }
+
+  int calculateAccuracy(int angle, int minAngle, int maxAngle) {
+    int accuracy;
+    if (angle < minAngle) {
+      accuracy = 100 - ((minAngle - angle) * 100 ~/ (maxAngle - minAngle));
+    } else if (angle > maxAngle) {
+      accuracy = 100 - ((angle - maxAngle) * 100 ~/ (maxAngle - minAngle));
+    } else {
+      accuracy = 100;
+    }
+    if (accuracy < 0) accuracy = 0;
+    if (accuracy > 100) accuracy = 100;
+    return accuracy;
+  }
+}
+
+Map<String, dynamic> main(
+  int elbowShoulderHipLeftAngle,
+  int elbowShoulderHipRightAngle,
+  int shoulderElbowHipLeftAngle,
+  int shoulderElbowHipRightAngle,
+  int hipKneeAnkleLeftAngle,
+  int hipKneeAnkleRightAngle,
+  int shoulderHipElbowLeftAngle,
+  int shoulderHipElbowRightAngle,
+  int shoulderHipKneeLeftAngle,
+  int shoulderHipKneeRightAngle,
+  int elbowShoulderWristLeftAngle,
+  int elbowShoulderWristRightAngle,
+  int shoulderHipShoulderAngle,
+  int shoulderElbowWristLeftAngle,
+  int shoulderElbowWristRightAngle,
+  int angleBetweenHands,
+  int angleBetweenLegs,
+  bool areBothHandsAboveNose,
+  bool isAnyHandAboveNose,
+  bool isAnyLegAboveNose,
+  String res,
+  int validPosesCount,
+  int currentPoseIndex
+) {
+  final exercise = Exercise();
+  return exercise.processLogic(
+    hipKneeAnkleLeftAngle,
+    hipKneeAnkleRightAngle,
+    shoulderHipKneeLeftAngle,
+    shoulderHipKneeRightAngle,
+    shoulderElbowWristLeftAngle,
+    shoulderElbowWristRightAngle,
+    angleBetweenLegs,
+    res,
+  );
+}'''
+__________________________________________________
+
+triangle  pose
+
+YOGA_CODE_ID = 9
+
+DART_CODE = r'''class Exercise {
+  Map<String, dynamic> processLogic(
+    int hipKneeAnkleLeftAngle,
+    int hipKneeAnkleRightAngle,
+    int shoulderHipKneeLeftAngle,
+    int shoulderHipKneeRightAngle,
+    int shoulderElbowWristLeftAngle,
+    int shoulderElbowWristRightAngle,
+    int elbowShoulderHipLeftAngle,
+    int elbowShoulderHipRightAngle,
+    int angleBetweenLegs,
+    bool isAnyHandAboveNose,
+    String res,
+    int validPosesCount,
+    int currentPoseIndex
+  ) {
+    int accuracy = 0;
+
+    bool noHumanDetected = (
+      hipKneeAnkleLeftAngle <= 0 &&
+      hipKneeAnkleRightAngle <= 0 &&
+      shoulderHipKneeLeftAngle <= 0 &&
+      shoulderHipKneeRightAngle <= 0 &&
+      shoulderElbowWristLeftAngle <= 0 &&
+      shoulderElbowWristRightAngle <= 0 &&
+      angleBetweenLegs <= 0 &&
+      elbowShoulderHipLeftAngle <= 0 &&
+      elbowShoulderHipRightAngle <= 0
+    );
+
+    bool incompleteBodyDetected = (
+      hipKneeAnkleLeftAngle < 40 ||
+      hipKneeAnkleRightAngle < 40 ||
+      angleBetweenLegs < 30
+    );
+
+    if (noHumanDetected || incompleteBodyDetected) {
+      return {
+        'res': "Fix Position",
+        'accuracy': 0,
+        'validPosesCount': validPosesCount,
+        'currentPose': "Trikonasana",
+        'currentPoseIndex': currentPoseIndex
+      };
+    }
+
+    if (isStandingPose(
+      hipKneeAnkleLeftAngle,
+      hipKneeAnkleRightAngle,
+      shoulderHipKneeLeftAngle,
+      shoulderHipKneeRightAngle,
+      shoulderElbowWristLeftAngle,
+      shoulderElbowWristRightAngle,
+      elbowShoulderHipLeftAngle,
+      elbowShoulderHipRightAngle,
+      angleBetweenLegs
+    )) {
+      return {
+        'res': "Fix Position",
+        'accuracy': 0,
+        'validPosesCount': validPosesCount,
+        'currentPose': "Trikonasana",
+        'currentPoseIndex': currentPoseIndex
+      };
+    }
+
+    const int legSpreadMin = 30, legSpreadMax = 80;
+    const int shoulderAngleMin = 40, shoulderAngleMax = 140;
+    const int handRaiseMin = 120, handRaiseMax = 180;
+    const int otherAngleMin = 100, otherAngleMax = 178;
+
+    int legAccuracy = calculateAccuracy(angleBetweenLegs, legSpreadMin, legSpreadMax);
+    int legScore = (legAccuracy * 30) ~/ 100;
+
+    int handScore = 0;
+    if (isAnyHandAboveNose) {
+      int raisedHandAngle = shoulderElbowWristLeftAngle > shoulderElbowWristRightAngle
+          ? shoulderElbowWristLeftAngle
+          : shoulderElbowWristRightAngle;
+      int handAccuracy = calculateAccuracy(raisedHandAngle, handRaiseMin, handRaiseMax);
+      handScore = (handAccuracy * 30) ~/ 100;
+    }
+
+    int shoulderL = calculateAccuracy(shoulderHipKneeLeftAngle, shoulderAngleMin, shoulderAngleMax);
+    int shoulderR = calculateAccuracy(shoulderHipKneeRightAngle, shoulderAngleMin, shoulderAngleMax);
+    int shoulderAvg = ((shoulderL + shoulderR) ~/ 2);
+    int shoulderScore = (shoulderAvg * 20) ~/ 100;
+
+    int hkaL = calculateAccuracy(hipKneeAnkleLeftAngle, otherAngleMin, otherAngleMax);
+    int hkaR = calculateAccuracy(hipKneeAnkleRightAngle, otherAngleMin, otherAngleMax);
+    int eshL = calculateAccuracy(elbowShoulderHipLeftAngle, otherAngleMin, otherAngleMax);
+    int eshR = calculateAccuracy(elbowShoulderHipRightAngle, otherAngleMin, otherAngleMax);
+    int othersAvg = ((hkaL + hkaR + eshL + eshR) ~/ 4);
+    int othersScore = (othersAvg * 20) ~/ 100;
+
+    accuracy = legScore + handScore + shoulderScore + othersScore;
+    if (accuracy > 100) accuracy = 100;
+    if (accuracy < 0) accuracy = 0;
+
+    if (accuracy >= 85) {
+      res = "Good";
+      validPosesCount += 1;
+    } else if (accuracy >= 40) {
+      res = "Almost There";
+    } else {
+      res = "Fix Position";
+    }
+
+    return {
+      'res': res,
+      'accuracy': accuracy,
+      'validPosesCount': validPosesCount,
+      'currentPose': "Trikonasana",
+      'currentPoseIndex': currentPoseIndex
+    };
+  }
+
+  bool isStandingPose(
+    int hkal, int hkar,
+    int shkLeft, int shkRight,
+    int sewLeft, int sewRight,
+    int eshLeft, int eshRight,
+    int legs
+  ) {
+    return hkal >= 170 &&
+           hkar >= 170 &&
+           shkLeft >= 160 &&
+           shkRight >= 160 &&
+           eshLeft < 50 &&
+           eshRight < 50 &&
+           sewLeft > 160 &&
+           sewRight > 160 &&
+           legs < 20;
+  }
+
+  int calculateAccuracy(int angle, int min, int max) {
+    if (angle <= 0) return 0;
+    int accuracy;
+    if (angle < min) {
+      accuracy = 100 - ((min - angle) * 100 ~/ (max - min));
+    } else if (angle > max) {
+      accuracy = 100 - ((angle - max) * 100 ~/ (max - min));
+    } else {
+      accuracy = 100;
+    }
+    if (accuracy < 0) accuracy = 0;
+    if (accuracy > 100) accuracy = 100;
+    return accuracy;
+  }
+}
+
+Map<String, dynamic> main(
+  int elbowShoulderHipLeftAngle,
+  int elbowShoulderHipRightAngle,
+  int shoulderElbowHipLeftAngle,
+  int shoulderElbowHipRightAngle,
+  int hipKneeAnkleLeftAngle,
+  int hipKneeAnkleRightAngle,
+  int shoulderHipElbowLeftAngle,
+  int shoulderHipElbowRightAngle,
+  int shoulderHipKneeLeftAngle,
+  int shoulderHipKneeRightAngle,
+  int elbowShoulderWristLeftAngle,
+  int elbowShoulderWristRightAngle,
+  int shoulderHipShoulderAngle,
+  int shoulderElbowWristLeftAngle,
+  int shoulderElbowWristRightAngle,
+  int angleBetweenHands,
+  int angleBetweenLegs,
+  bool areBothHandsAboveNose,
+  bool isAnyHandAboveNose,
+  bool isAnyLegAboveNose,
+  String res,
+  int validPosesCount,
+  int currentPoseIndex
+) {
+  final exercise = Exercise();
+  return exercise.processLogic(
+    hipKneeAnkleLeftAngle,
+    hipKneeAnkleRightAngle,
+    shoulderHipKneeLeftAngle,
+    shoulderHipKneeRightAngle,
+    shoulderElbowWristLeftAngle,
+    shoulderElbowWristRightAngle,
+    elbowShoulderHipLeftAngle,
+    elbowShoulderHipRightAngle,
+    angleBetweenLegs,
+    isAnyHandAboveNose,
+    res,
+    validPosesCount,
+    currentPoseIndex
+  );
+}'''
+-----------------------------------------
+
+Tri Pada Adho Mukha Svanasana
+
+
+YOGA_CODE_ID = 11
+
+DART_CODE = r'''class Exercise {
+  Map<String, dynamic> processLogic(
+    int hipKneeAnkleLeftAngle,
+    int hipKneeAnkleRightAngle,
+    int shoulderElbowWristLeftAngle,
+    int shoulderElbowWristRightAngle,
+    int elbowShoulderHipLeftAngle,
+    int elbowShoulderHipRightAngle,
+    int shoulderHipKneeLeftAngle,
+    int shoulderHipKneeRightAngle,
+    int angleBetweenLegs,
+    bool isAnyLegAboveNose,
+    String res,
+    int validPosesCount,
+    int currentPoseIndex
+  ) {
+    int accuracy = 0;
+
+    bool noHumanDetected = (
+      hipKneeAnkleLeftAngle <= 0 &&
+      hipKneeAnkleRightAngle <= 0 &&
+      shoulderElbowWristLeftAngle <= 0 &&
+      shoulderElbowWristRightAngle <= 0 &&
+      elbowShoulderHipLeftAngle <= 0 &&
+      elbowShoulderHipRightAngle <= 0 &&
+      shoulderHipKneeLeftAngle <= 0 &&
+      shoulderHipKneeRightAngle <= 0
+    );
+
+    bool incompleteBodyDetected = (
+      hipKneeAnkleLeftAngle < 40 ||
+      hipKneeAnkleRightAngle < 40 ||
+      shoulderHipKneeLeftAngle < 40 ||
+      shoulderHipKneeRightAngle < 40 ||
+      shoulderElbowWristLeftAngle < 40 ||
+      shoulderElbowWristRightAngle < 40
+    );
+
+    if (noHumanDetected || incompleteBodyDetected) {
+      return {
+        'res': "Fix Position",
+        'accuracy': 0,
+        'validPosesCount': validPosesCount,
+        'currentPose': "Three-Legged Downward Dog",
+        'currentPoseIndex': currentPoseIndex
+      };
+    }
+
+    if (!isAnyLegAboveNose) {
+      return {
+        'res': "Fix Position",
+        'accuracy': 0,
+        'validPosesCount': validPosesCount,
+        'currentPose': "Three-Legged Downward Dog",
+        'currentPoseIndex': currentPoseIndex
+      };
+    }
+
+    const int armMin = 150, armMax = 180;
+    const int legMin = 160, legMax = 180;
+    const int torsoMin = 150, torsoMax = 180;
+    const int splitMin = 80, splitMax = 180;
+    const int diagonalMin = 40, diagonalMax = 170;
+
+    int armL = calculateAccuracy(shoulderElbowWristLeftAngle, armMin, armMax);
+    int armR = calculateAccuracy(shoulderElbowWristRightAngle, armMin, armMax);
+    int armScore = ((armL + armR) ~/ 2 * 20) ~/ 100;
+
+    int legL = calculateAccuracy(hipKneeAnkleLeftAngle, legMin, legMax);
+    int legR = calculateAccuracy(hipKneeAnkleRightAngle, legMin, legMax);
+    int legScore = ((legL + legR) ~/ 2 * 20) ~/ 100;
+
+    int legSplitScore = (calculateAccuracy(angleBetweenLegs, splitMin, splitMax) * 20) ~/ 100;
+
+    int torsoL = calculateAccuracy(elbowShoulderHipLeftAngle, torsoMin, torsoMax);
+    int torsoR = calculateAccuracy(elbowShoulderHipRightAngle, torsoMin, torsoMax);
+    int torsoScore = ((torsoL + torsoR) ~/ 2 * 20) ~/ 100;
+
+    int diagL = calculateAccuracy(shoulderHipKneeLeftAngle, diagonalMin, diagonalMax);
+    int diagR = calculateAccuracy(shoulderHipKneeRightAngle, diagonalMin, diagonalMax);
+    int diagScore = ((diagL + diagR) ~/ 2 * 20) ~/ 100;
+
+    accuracy = armScore + legScore + legSplitScore + torsoScore + diagScore;
+    if (accuracy > 100) accuracy = 100;
+
+    if (accuracy >= 85) {
+      res = "Good";
+      validPosesCount += 1;
+    } else if (accuracy >= 40) {
+      res = "Almost There";
+    } else {
+      res = "Fix Position";
+    }
+
+    return {
+      'res': res,
+      'accuracy': accuracy,
+      'validPosesCount': validPosesCount,
+      'currentPose': "Three-Legged Downward Dog",
+      'currentPoseIndex': currentPoseIndex
+    };
+  }
+
+  int calculateAccuracy(int angle, int min, int max) {
+    int accuracy;
+    if (angle < min) {
+      accuracy = 100 - ((min - angle) * 100 ~/ (max - min));
+    } else if (angle > max) {
+      accuracy = 100 - ((angle - max) * 100 ~/ (max - min));
+    } else {
+      accuracy = 100;
+    }
+    if (accuracy < 0) accuracy = 0;
+    if (accuracy > 100) accuracy = 100;
+    return accuracy;
+  }
+}
+
+Map<String, dynamic> main(
+  int elbowShoulderHipLeftAngle,
+  int elbowShoulderHipRightAngle,
+  int shoulderElbowHipLeftAngle,
+  int shoulderElbowHipRightAngle,
+  int hipKneeAnkleLeftAngle,
+  int hipKneeAnkleRightAngle,
+  int shoulderHipElbowLeftAngle,
+  int shoulderHipElbowRightAngle,
+  int shoulderHipKneeLeftAngle,
+  int shoulderHipKneeRightAngle,
+  int elbowShoulderWristLeftAngle,
+  int elbowShoulderWristRightAngle,
+  int shoulderHipShoulderAngle,
+  int shoulderElbowWristLeftAngle,
+  int shoulderElbowWristRightAngle,
+  int angleBetweenHands,
+  int angleBetweenLegs,
+  bool areBothHandsAboveNose,
+  bool isAnyHandAboveNose,
+  bool isAnyLegAboveNose,
+  String res,
+  int validPosesCount,
+  int currentPoseIndex
+) {
+  final exercise = Exercise();
+  return exercise.processLogic(
+    hipKneeAnkleLeftAngle,
+    hipKneeAnkleRightAngle,
+    shoulderElbowWristLeftAngle,
+    shoulderElbowWristRightAngle,
+    elbowShoulderHipLeftAngle,
+    elbowShoulderHipRightAngle,
+    shoulderHipKneeLeftAngle,
+    shoulderHipKneeRightAngle,
+    angleBetweenLegs,
+    isAnyLegAboveNose,
+    res,
+    validPosesCount,
+    currentPoseIndex
+  );
+}'''
+------------------------------------------------
+bow pose
+
+YOGA_CODE_ID = 12
+
+DART_CODE = r'''class Exercise {
+  Map<String, dynamic> processLogic(
+    int shoulderElbowHipLeftAngle,
+    int hipKneeAnkleLeftAngle,
+    int shoulderElbowHipRightAngle,
+    int hipKneeAnkleRightAngle,
+    int shoulderHipElbowLeftAngle,
+    int shoulderHipElbowRightAngle,
+    int shoulderElbowWristLeftAngle,
+    int shoulderElbowWristRightAngle,
+    String res,
+  ) {
+    int accuracy = 0;
+
+    bool noHumanDetected = (
+      shoulderElbowHipLeftAngle <= 0 &&
+      hipKneeAnkleLeftAngle <= 0 &&
+      shoulderElbowHipRightAngle <= 0 &&
+      hipKneeAnkleRightAngle <= 0 &&
+      shoulderHipElbowLeftAngle <= 0 &&
+      shoulderHipElbowRightAngle <= 0 &&
+      shoulderElbowWristLeftAngle <= 0 &&
+      shoulderElbowWristRightAngle <= 0
+    );
+
+    bool incompleteBodyDetected = (
+      shoulderElbowHipLeftAngle < 30 ||
+      hipKneeAnkleLeftAngle < 30 ||
+      shoulderElbowHipRightAngle < 30 ||
+      hipKneeAnkleRightAngle < 30
+    );
+
+    if (noHumanDetected || incompleteBodyDetected) {
+      return {
+        'res': "Fix Position",
+        'accuracy': 0,
+      };
+    }
+
+
+    // Standing Pose Check (return early)
+    if (shoulderElbowHipLeftAngle > 130 &&
+        shoulderElbowHipRightAngle > 130 &&
+        hipKneeAnkleLeftAngle > 160 &&
+        hipKneeAnkleRightAngle > 160 &&
+        shoulderHipElbowLeftAngle < 30 &&
+        shoulderHipElbowRightAngle < 30 &&
+        shoulderElbowWristLeftAngle > 160 &&
+        shoulderElbowWristRightAngle > 160) {
+      return {
+        'res': "Fix Position",
+        'accuracy': 0,
+      };
+    }
+
+    const int shoulderElbowHipLeftMin = 70, shoulderElbowHipLeftMax = 90;
+    const int shoulderElbowHipRightMin = 70, shoulderElbowHipRightMax = 90;
+    const int hipKneeAnkleLeftMin = 75, hipKneeAnkleLeftMax = 95;
+    const int hipKneeAnkleRightMin = 75, hipKneeAnkleRightMax = 95;
+    const int shoulderHipElbowLeftMin = 15, shoulderHipElbowLeftMax = 40;
+    const int shoulderHipElbowRightMin = 15, shoulderHipElbowRightMax = 40;
+    const int shoulderElbowWristLeftMin = 160, shoulderElbowWristLeftMax = 180;
+    const int shoulderElbowWristRightMin = 160, shoulderElbowWristRightMax = 180;
+
+    int shoulderElbowHipLeftAccuracy = calculateAccuracy(shoulderElbowHipLeftAngle, shoulderElbowHipLeftMin, shoulderElbowHipLeftMax);
+    int shoulderElbowHipRightAccuracy = calculateAccuracy(shoulderElbowHipRightAngle, shoulderElbowHipRightMin, shoulderElbowHipRightMax);
+    int hipKneeAnkleLeftAccuracy = calculateAccuracy(hipKneeAnkleLeftAngle, hipKneeAnkleLeftMin, hipKneeAnkleLeftMax);
+    int hipKneeAnkleRightAccuracy = calculateAccuracy(hipKneeAnkleRightAngle, hipKneeAnkleRightMin, hipKneeAnkleRightMax);
+    int shoulderHipElbowLeftAccuracy = calculateAccuracy(shoulderHipElbowLeftAngle, shoulderHipElbowLeftMin, shoulderHipElbowLeftMax);
+    int shoulderHipElbowRightAccuracy = calculateAccuracy(shoulderHipElbowRightAngle, shoulderHipElbowRightMin, shoulderHipElbowRightMax);
+    int shoulderElbowWristLeftAccuracy = calculateAccuracy(shoulderElbowWristLeftAngle, shoulderElbowWristLeftMin, shoulderElbowWristLeftMax);
+    int shoulderElbowWristRightAccuracy = calculateAccuracy(shoulderElbowWristRightAngle, shoulderElbowWristRightMin, shoulderElbowWristRightMax);
+
+    accuracy = (
+      shoulderElbowHipLeftAccuracy +
+      shoulderElbowHipRightAccuracy +
+      hipKneeAnkleLeftAccuracy +
+      hipKneeAnkleRightAccuracy +
+      shoulderHipElbowLeftAccuracy +
+      shoulderHipElbowRightAccuracy +
+      shoulderElbowWristLeftAccuracy +
+      shoulderElbowWristRightAccuracy
+    ) ~/ 8;
+
+
+    if (accuracy >= 80) {
+      res = "Good";
+    } else if (accuracy >= 40) {
+      res = "Almost There";
+    } else {
+      res = "Fix Position";
+    }
+
+    return {
+      'res': res,
+      'accuracy': accuracy,
+    };
+  }
+
+  int calculateAccuracy(int angle, int minAngle, int maxAngle) {
+    int accuracy;
+    if (angle < minAngle) {
+      accuracy = 100 - ((minAngle - angle) * 100 ~/ (maxAngle - minAngle));
+    } else if (angle > maxAngle) {
+      accuracy = 100 - ((angle - maxAngle) * 100 ~/ (maxAngle - minAngle));
+    } else {
+      accuracy = 100;
+    }
+    if (accuracy < 0) accuracy = 0;
+    if (accuracy > 100) accuracy = 100;
+    return accuracy;
+  }
+}
+
+Map<String, dynamic> main(
+  int elbowShoulderHipLeftAngle,
+  int elbowShoulderHipRightAngle,
+  int shoulderElbowHipLeftAngle,
+  int shoulderElbowHipRightAngle,
+  int hipKneeAnkleLeftAngle,
+  int hipKneeAnkleRightAngle,
+  int shoulderHipElbowLeftAngle,
+  int shoulderHipElbowRightAngle,
+  int shoulderHipKneeLeftAngle,
+  int shoulderHipKneeRightAngle,
+  int elbowShoulderWristLeftAngle,
+  int elbowShoulderWristRightAngle,
+  int shoulderHipShoulderAngle,
+  int shoulderElbowWristLeftAngle,
+  int shoulderElbowWristRightAngle,
+  int angleBetweenHands,
+  int angleBetweenLegs,
+  bool areBothHandsAboveNose,
+  bool isAnyHandAboveNose,
+  bool isAnyLegAboveNose,
+  String res,
+  int validPosesCount,
+  int currentPoseIndex
+) {
+  final exercise = Exercise();
+  return exercise.processLogic(
+    shoulderElbowHipLeftAngle,
+    hipKneeAnkleLeftAngle,
+    shoulderElbowHipRightAngle,
+    hipKneeAnkleRightAngle,
+    shoulderHipElbowLeftAngle,
+    shoulderHipElbowRightAngle,
+    shoulderElbowWristLeftAngle,
+    shoulderElbowWristRightAngle,
+    res,
+  );
+}'''
+-------------------------------------------
+wheel pose
+
+YOGA_CODE_ID = 13
+
+DART_CODE = r'''class Exercise {
+  Map<String, dynamic> processLogic(
+    int hipKneeAnkleLeftAngle,
+    int hipKneeAnkleRightAngle,
+    int shoulderHipElbowLeftAngle,
+    int shoulderHipElbowRightAngle,
+    int shoulderHipKneeLeftAngle,
+    int shoulderHipKneeRightAngle,
+    int shoulderElbowWristLeftAngle,
+    int shoulderElbowWristRightAngle,
+    int angleBetweenHands,
+    int angleBetweenLegs,
+    String res,
+    int validPosesCount,
+    int currentPoseIndex
+  ) {
+    int accuracy = 0;
+
+    //  Added (like your other pose):
+    bool noHumanDetected = (
+      hipKneeAnkleLeftAngle <= 0 &&
+      hipKneeAnkleRightAngle <= 0 &&
+      shoulderHipElbowLeftAngle <= 0 &&
+      shoulderHipElbowRightAngle <= 0 &&
+      shoulderHipKneeLeftAngle <= 0 &&
+      shoulderHipKneeRightAngle <= 0 &&
+      shoulderElbowWristLeftAngle <= 0 &&
+      shoulderElbowWristRightAngle <= 0
+    );
+
+    // Added: incomplete body detection
+    // NOTE: Wheel pose has torso angles (shoulderHipElbow) expected to be small (2–10),
+    // so we don't use "< 40" for those. We only treat them as incomplete when 0 / missing.
+    bool incompleteBodyDetected = (
+      hipKneeAnkleLeftAngle < 60 ||
+      hipKneeAnkleRightAngle < 60 ||
+      shoulderHipKneeLeftAngle < 40 ||
+      shoulderHipKneeRightAngle < 40 ||
+      shoulderElbowWristLeftAngle < 60 ||
+      shoulderElbowWristRightAngle < 60 ||
+      shoulderHipElbowLeftAngle <= 0 ||
+      shoulderHipElbowRightAngle <= 0
+    );
+
+    if (noHumanDetected) {
+      return {
+        'res': "No Human",
+        'accuracy': 0,
+        'validPosesCount': validPosesCount,
+        'currentPose': "Chakrasana (Wheel Pose)",
+        'currentPoseIndex': currentPoseIndex
+      };
+    }
+
+    if (incompleteBodyDetected) {
+      return {
+        'res': "Fix Position",
+        'accuracy': 0,
+        'validPosesCount': validPosesCount,
+        'currentPose': "Chakrasana (Wheel Pose)",
+        'currentPoseIndex': currentPoseIndex
+      };
+    }
+
+    // Existing standing check (kept)
+    if (hipKneeAnkleLeftAngle > 160 &&
+        hipKneeAnkleRightAngle > 160 &&
+        shoulderHipKneeLeftAngle > 160 &&
+        shoulderHipKneeRightAngle > 160) {
+      return {
+        'res': "Standing",
+        'accuracy': 0,
+        'validPosesCount': validPosesCount,
+        'currentPose': "Chakrasana (Wheel Pose)",
+        'currentPoseIndex': currentPoseIndex
+      };
+    }
+
+    const int legMin = 120, legMax = 145;
+    const int archMin = 75, archMax = 105;
+    const int torsoMin = 2, torsoMax = 10;
+    const int armMin = 160, armMax = 180;
+
+    int legScore = ((calculateAccuracy(hipKneeAnkleLeftAngle, legMin, legMax) +
+                    calculateAccuracy(hipKneeAnkleRightAngle, legMin, legMax)) ~/ 2);
+
+    int archScore = ((calculateAccuracy(shoulderHipKneeLeftAngle, archMin, archMax) +
+                     calculateAccuracy(shoulderHipKneeRightAngle, archMin, archMax)) ~/ 2);
+
+    int torsoScore = ((calculateAccuracy(shoulderHipElbowLeftAngle, torsoMin, torsoMax) +
+                      calculateAccuracy(shoulderHipElbowRightAngle, torsoMin, torsoMax)) ~/ 2);
+
+    int armScore = ((calculateAccuracy(shoulderElbowWristLeftAngle, armMin, armMax) +
+                    calculateAccuracy(shoulderElbowWristRightAngle, armMin, armMax)) ~/ 2);
+
+    accuracy = ((legScore * 25) + (archScore * 35) + (armScore * 25) + (torsoScore * 15)) ~/ 100;
+
+    if (accuracy < 0) accuracy = 0;
+    if (accuracy > 100) accuracy = 100;
+
+    if (accuracy >= 75) {
+      res = "Good";
+      validPosesCount += 1;
+    } else if (accuracy >= 40) {
+      res = "Incomplete";
+    } else {
+      res = "Fix Position";
+    }
+
+    return {
+      'res': res,
+      'accuracy': accuracy,
+      'validPosesCount': validPosesCount,
+      'currentPose': "Chakrasana (Wheel Pose)",
+      'currentPoseIndex': currentPoseIndex
+    };
+  }
+
+  int calculateAccuracy(int angle, int min, int max) {
+    if (angle == 0) return 0;
+    int accuracy;
+    if (angle < min) {
+      accuracy = 100 - ((min - angle) * 100 ~/ (max - min));
+    } else if (angle > max) {
+      accuracy = 100 - ((angle - max) * 100 ~/ (max - min));
+    } else {
+      accuracy = 100;
+    }
+    if (accuracy < 0) accuracy = 0;
+    if (accuracy > 100) accuracy = 100;
+    return accuracy;
+  }
+}
+
+Map<String, dynamic> main(
+  int elbowShoulderHipLeftAngle,
+  int elbowShoulderHipRightAngle,
+  int shoulderElbowHipLeftAngle,
+  int shoulderElbowHipRightAngle,
+  int hipKneeAnkleLeftAngle,
+  int hipKneeAnkleRightAngle,
+  int shoulderHipElbowLeftAngle,
+  int shoulderHipElbowRightAngle,
+  int shoulderHipKneeLeftAngle,
+  int shoulderHipKneeRightAngle,
+  int elbowShoulderWristLeftAngle,
+  int elbowShoulderWristRightAngle,
+  int shoulderHipShoulderAngle,
+  int shoulderElbowWristLeftAngle,
+  int shoulderElbowWristRightAngle,
+  int angleBetweenHands,
+  int angleBetweenLegs,
+  bool areBothHandsAboveNose,
+  bool isAnyHandAboveNose,
+  bool isAnyLegAboveNose,
+  String res,
+  int validPosesCount,
+  int currentPoseIndex
+) {
+  final exercise = Exercise();
+  return exercise.processLogic(
+    hipKneeAnkleLeftAngle,
+    hipKneeAnkleRightAngle,
+    shoulderHipElbowLeftAngle,
+    shoulderHipElbowRightAngle,
+    shoulderHipKneeLeftAngle,
+    shoulderHipKneeRightAngle,
+    shoulderElbowWristLeftAngle,
+    shoulderElbowWristRightAngle,
+    angleBetweenHands,
+    angleBetweenLegs,
+    res,
+    validPosesCount,
+    currentPoseIndex
+  );
+}'''
+-----------------------------------------
+tree pose
+
+YOGA_CODE_ID = 14
+
+DART_CODE = r'''class Exercise {
+  Map<String, dynamic> processLogic(
+    int hipKneeAnkleLeftAngle,
+    int hipKneeAnkleRightAngle,
+    int shoulderElbowWristLeftAngle,
+    int shoulderElbowWristRightAngle,
+    int elbowShoulderHipLeftAngle,
+    int elbowShoulderHipRightAngle,
+    int shoulderHipKneeLeftAngle,
+    int shoulderHipKneeRightAngle,
+    int angleBetweenLegs,
+    String res,
+    int validPosesCount,
+    int currentPoseIndex
+  ) {
+    int accuracy = 0;
+
+    if (hipKneeAnkleLeftAngle == 0 &&
+        hipKneeAnkleRightAngle == 0 &&
+        shoulderElbowWristLeftAngle == 0 &&
+        shoulderElbowWristRightAngle == 0 &&
+        elbowShoulderHipLeftAngle == 0 &&
+        elbowShoulderHipRightAngle == 0 &&
+        shoulderHipKneeLeftAngle == 0 &&
+        shoulderHipKneeRightAngle == 0) {
+      return {
+        'res': "No Human",
+        'accuracy': 0,
+        'validPosesCount': validPosesCount,
+        'currentPose': "Tree Pose",
+        'currentPoseIndex': currentPoseIndex
+      };
+    }
+
+    if (hipKneeAnkleLeftAngle > 160 &&
+        hipKneeAnkleRightAngle > 160 &&
+        shoulderHipKneeLeftAngle > 160 &&
+        shoulderHipKneeRightAngle > 160 &&
+        angleBetweenLegs < 20) {
+      return {
+        'res': "Standing",
+        'accuracy': 0,
+        'validPosesCount': validPosesCount,
+        'currentPose': "Tree Pose",
+        'currentPoseIndex': currentPoseIndex
+      };
+    }
+
+    const int bentLegMin = 15, bentLegMax = 130;
+    const int standingLegMin = 160, standingLegMax = 185;
+    const int armMin = 25, armMax = 75;
+    const int balanceMin = 95, balanceMax = 180;
+
+    bool isLeftTree = (
+      hipKneeAnkleLeftAngle >= bentLegMin && hipKneeAnkleLeftAngle <= bentLegMax &&
+      hipKneeAnkleRightAngle >= standingLegMin && hipKneeAnkleRightAngle <= standingLegMax &&
+      shoulderHipKneeRightAngle >= balanceMin
+    );
+
+    bool isRightTree = (
+      hipKneeAnkleRightAngle >= bentLegMin && hipKneeAnkleRightAngle <= bentLegMax &&
+      hipKneeAnkleLeftAngle >= standingLegMin && hipKneeAnkleLeftAngle <= standingLegMax &&
+      shoulderHipKneeLeftAngle >= balanceMin
+    );
+
+    if (isLeftTree || isRightTree) {
+      int bentLeg = isRightTree ? hipKneeAnkleRightAngle : hipKneeAnkleLeftAngle;
+      int standingLeg = isRightTree ? hipKneeAnkleLeftAngle : hipKneeAnkleRightAngle;
+      int balanceAngle = isRightTree ? shoulderHipKneeLeftAngle : shoulderHipKneeRightAngle;
+      
+      int bentLegAccuracy = calculateAccuracy(bentLeg, bentLegMin, bentLegMax);
+      int standingLegAccuracy = calculateAccuracy(standingLeg, standingLegMin, standingLegMax);
+      int balanceAccuracy = calculateAccuracy(balanceAngle, balanceMin, balanceMax);
+      int armLeftAccuracy = calculateAccuracy(shoulderElbowWristLeftAngle, armMin, armMax);
+      int armRightAccuracy = calculateAccuracy(shoulderElbowWristRightAngle, armMin, armMax);
+      
+      accuracy = (bentLegAccuracy + standingLegAccuracy + balanceAccuracy + 
+                  armLeftAccuracy + armRightAccuracy) ~/ 5;
+      
+      res = accuracy >= 75 ? "Good" : "Fix Position";
+      
+      if (accuracy >= 75) {
+        validPosesCount += 1;
+      }
+      
+      return {
+        'res': res,
+        'accuracy': accuracy,
+        'validPosesCount': validPosesCount,
+        'currentPose': "Tree Pose",
+        'currentPoseIndex': currentPoseIndex
+      };
+    }
+
+    bool partial = (
+      (hipKneeAnkleLeftAngle > 20 && hipKneeAnkleRightAngle > 20) &&
+      (shoulderElbowWristLeftAngle > 10 || shoulderElbowWristRightAngle > 10)
+    );
+
+    if (partial) {
+      res = "Incomplete";
+      accuracy = 30;
+    } else {
+      res = "Fix Position";
+      accuracy = 0;
+    }
+
+    return {
+      'res': res,
+      'accuracy': accuracy,
+      'validPosesCount': validPosesCount,
+      'currentPose': "Tree Pose",
+      'currentPoseIndex': currentPoseIndex
+    };
+  }
+
+  int calculateAccuracy(int angle, int minAngle, int maxAngle) {
+    int accuracy;
+    if (angle < minAngle) {
+      accuracy = 100 - ((minAngle - angle) * 100 ~/ (maxAngle - minAngle));
+    } else if (angle > maxAngle) {
+      accuracy = 100 - ((angle - maxAngle) * 100 ~/ (maxAngle - minAngle));
+    } else {
+      accuracy = 100;
+    }
+    if (accuracy < 0) accuracy = 0;
+    if (accuracy > 100) accuracy = 100;
+    return accuracy;
+  }
+}
+
+Map<String, dynamic> main(
+  int elbowShoulderHipLeftAngle,
+  int elbowShoulderHipRightAngle,
+  int shoulderElbowHipLeftAngle,
+  int shoulderElbowHipRightAngle,
+  int hipKneeAnkleLeftAngle,
+  int hipKneeAnkleRightAngle,
+  int shoulderHipElbowLeftAngle,
+  int shoulderHipElbowRightAngle,
+  int shoulderHipKneeLeftAngle,
+  int shoulderHipKneeRightAngle,
+  int elbowShoulderWristLeftAngle,
+  int elbowShoulderWristRightAngle,
+  int shoulderHipShoulderAngle,
+  int shoulderElbowWristLeftAngle,
+  int shoulderElbowWristRightAngle,
+  int angleBetweenHands,
+  int angleBetweenLegs,
+  bool areBothHandsAboveNose,
+  bool isAnyHandAboveNose,
+  bool isAnyLegAboveNose,
+  String res,
+  int validPosesCount,
+  int currentPoseIndex
+) {
+  final exercise = Exercise();
+  return exercise.processLogic(
+    hipKneeAnkleLeftAngle,
+    hipKneeAnkleRightAngle,
+    shoulderElbowWristLeftAngle,
+    shoulderElbowWristRightAngle,
+    elbowShoulderHipLeftAngle,
+    elbowShoulderHipRightAngle,
+    shoulderHipKneeLeftAngle,
+    shoulderHipKneeRightAngle,
+    angleBetweenLegs,
+    res,
+    validPosesCount,
+    currentPoseIndex
+  );
+}'''
+
+
